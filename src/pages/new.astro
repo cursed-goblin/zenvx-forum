@@ -1,0 +1,53 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { supabase } from "../lib/supabase";
+
+const { data: categories } = await supabase
+  .from("categories").select("id, name, slug").order("sort_order");
+const preselect = Astro.url.searchParams.get("category") ?? "";
+---
+<Layout title="New thread — ZenVX Forum" description="Start a new discussion.">
+  <h1>New thread</h1>
+  <form id="new-thread">
+    <label>Category
+      <select name="category_id" required>
+        {categories?.map((c) => (
+          <option value={c.id} selected={c.slug === preselect}>{c.name}</option>
+        ))}
+      </select>
+    </label>
+    <label>Title <input name="title" required maxlength="200" /></label>
+    <label>Body (markdown) <textarea name="body" required></textarea></label>
+    <button type="submit">Create thread</button>
+    <p id="msg" role="status"></p>
+  </form>
+
+  <script>
+    import { supabase } from "../lib/supabase";
+
+    function slugify(s) {
+      return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80)
+        + "-" + Math.random().toString(36).slice(2, 7);
+    }
+
+    const form = document.getElementById("new-thread");
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("msg");
+      const fd = new FormData(form);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { if (msg) msg.textContent = "Please sign in first."; return; }
+      const title = fd.get("title");
+      const slug = slugify(title);
+      const { data, error } = await supabase.from("threads").insert({
+        category_id: fd.get("category_id"),
+        author_id: user.id,
+        title,
+        slug,
+        body: fd.get("body"),
+      }).select("slug, categories(slug)").single();
+      if (error) { if (msg) msg.textContent = error.message; return; }
+      window.location.href = `/c/${data.categories?.slug}/${data.slug}`;
+    });
+  </script>
+</Layout>

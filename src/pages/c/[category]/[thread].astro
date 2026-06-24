@@ -1,0 +1,83 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { supabase } from "../../../lib/supabase";
+import { renderMarkdown, excerpt } from "../../../lib/markdown";
+import ReplyControls from "../../../components/ReplyControls.astro";
+
+const { thread } = Astro.params;
+
+const { data: t } = await supabase
+  .from("threads")
+  .select("id, title, slug, body, created_at, is_locked, profiles(username), categories(slug, name)")
+  .eq("slug", thread)
+  .eq("is_deleted", false)
+  .single();
+
+if (!t) return Astro.redirect("/404");
+
+const { data: posts } = await supabase
+  .from("posts")
+  .select("id, body, parent_post_id, created_at, profiles(username)")
+  .eq("thread_id", t.id)
+  .eq("is_deleted", false)
+  .order("created_at", { ascending: true });
+
+// Build a nested reply tree from the flat list
+const byParent = new Map();
+for (const p of posts ?? []) {
+  const key = p.parent_post_id ?? "root";
+  if (!byParent.has(key)) byParent.set(key, []);
+  byParent.get(key).push(p);
+}
+function childrenOf(id) { return byParent.get(id) ?? []; }
+
+const bodyHtml = renderMarkdown(t.body);
+const SCHEMA = "https://" + "schema.org";
+const jsonLd = {
+  "@context": SCHEMA,
+  "@type": "DiscussionForumPosting",
+  headline: t.title,
+  articleBody: t.body,
+  author: { "@type": "Person", name: t.profiles?.username ?? "anonymous" },
+  datePublished: t.created_at,
+  interactionStatistic: {
+    "@type": "InteractionCounter",
+    interactionType: SCHEMA + "/CommentAction",
+    userInteractionCount: (posts ?? []).length,
+  },
+};
+---
+<Layout title={t.title} description={excerpt(t.body)} type="article">
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} slot="head" />
+
+  <nav><a href={`/c/${t.categories?.slug}`}>&larr; {t.categories?.name}</a></nav>
+
+  <article class="thread">
+    <h1>{t.title}</h1>
+    <p class="meta">by {t.profiles?.username}</p>
+    <div class="body" set:html={bodyHtml} />
+  </article>
+
+  <hr />
+  <h2>Replies ({(posts ?? []).length})</h2>
+
+  {/* Nested replies, rendered server-side for SEO */}
+  <ul id="replies" class="replies" data-thread-id={t.id}>
+    {childrenOf("root").map((p) => (
+      <li class="post" data-id={p.id}>
+        <p class="meta">{p.profiles?.username}</p>
+        <div class="body" set:html={renderMarkdown(p.body)} />
+        <ul class="children">
+          {childrenOf(p.id).map((child) => (
+            <li class="post" data-id={child.id}>
+              <p class="meta">{child.profiles?.username}</p>
+              <div class="body" set:html={renderMarkdown(child.body)} />
+            </li>
+          ))}
+        </ul>
+      </li>
+    ))}
+  </ul>
+
+  <ReplyControls threadId={t.id} locked={t.is_locked} />
+</Layout>

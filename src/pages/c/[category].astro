@@ -1,0 +1,33 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { supabase } from "../../lib/supabase";
+
+const { category } = Astro.params;
+
+const { data: cat } = await supabase
+  .from("categories").select("id, name, slug, description").eq("slug", category).single();
+
+if (!cat) return Astro.redirect("/404");
+
+const { data: threads } = await supabase
+  .from("threads")
+  .select("id, title, slug, created_at, is_pinned, profiles(username)")
+  .eq("category_id", cat.id)
+  .eq("is_deleted", false)
+  .order("is_pinned", { ascending: false })
+  .order("created_at", { ascending: false });
+---
+<Layout title={cat.name + " — ZenVX Forum"} description={cat.description ?? cat.name}>
+  <h1>{cat.name}</h1>
+  <p>{cat.description}</p>
+  <p><a href={`/new?category=${cat.slug}`}>+ New thread in {cat.name}</a></p>
+  <ul>
+    {threads?.map((t) => (
+      <li>
+        {t.is_pinned ? "📌 " : ""}
+        <a href={`/c/${cat.slug}/${t.slug}`}>{t.title}</a>
+        <small> by {t.profiles?.username}</small>
+      </li>
+    ))}
+  </ul>
+</Layout>

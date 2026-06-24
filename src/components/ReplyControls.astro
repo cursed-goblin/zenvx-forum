@@ -1,0 +1,61 @@
+---
+const { threadId, locked } = Astro.props;
+---
+{locked ? (
+  <p><em>This thread is locked.</em></p>
+) : (
+  <form id="reply-form" data-thread-id={threadId}>
+    <textarea name="body" required placeholder="Write a reply (markdown supported)"></textarea>
+    <button type="submit">Reply</button>
+    <p id="reply-msg" role="status"></p>
+  </form>
+)}
+
+<script>
+  import { supabase } from "../lib/supabase";
+  import { renderMarkdown } from "../lib/markdown";
+
+  const list = document.getElementById("replies");
+  const threadId = list?.dataset.threadId;
+  if (list && threadId) {
+    // Append a post to the list only if it is not already present (dedupe vs SSR)
+    function appendPost(p) {
+      if (list.querySelector(`[data-id="${p.id}"]`)) return;
+      const li = document.createElement("li");
+      li.className = "post";
+      li.dataset.id = p.id;
+      const meta = document.createElement("p");
+      meta.className = "meta";
+      meta.textContent = "new reply";
+      const body = document.createElement("div");
+      body.className = "body";
+      body.innerHTML = renderMarkdown(p.body);
+      li.append(meta, body);
+      list.appendChild(li);
+    }
+
+    // Step 5: live reply updates via Supabase Realtime (through the CF proxy WS)
+    supabase
+      .channel(`thread:${threadId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "posts", filter: `thread_id=eq.${threadId}` },
+        (payload) => appendPost(payload.new)
+      )
+      .subscribe();
+  }
+
+  const form = document.getElementById("reply-form");
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("reply-msg");
+    const body = new FormData(form).get("body");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { if (msg) msg.textContent = "Please sign in to reply."; return; }
+    const { error } = await supabase
+      .from("posts")
+      .insert({ thread_id: form.dataset.threadId, author_id: user.id, body });
+    if (error) { if (msg) msg.textContent = error.message; }
+    else { form.reset(); if (msg) msg.textContent = "Posted."; }
+  });
+</script>

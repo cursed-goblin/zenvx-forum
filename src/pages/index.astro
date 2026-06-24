@@ -1,0 +1,42 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { supabase } from "../lib/supabase";
+
+const { data: categories } = await supabase
+  .from("categories")
+  .select("id, name, slug, description")
+  .order("sort_order");
+
+const { data: threads } = await supabase
+  .from("threads")
+  .select("id, title, slug, created_at, is_pinned, categories(slug, name), profiles(username)")
+  .eq("is_deleted", false)
+  .order("is_pinned", { ascending: false })
+  .order("created_at", { ascending: false })
+  .limit(30);
+---
+<Layout title="ZenVX Community Forum" description="Discuss ZenVX — development, support, and ideas.">
+  <h1>ZenVX Community Forum</h1>
+
+  <section>
+    <h2>Categories</h2>
+    <ul>
+      {categories?.map((c) => (
+        <li><a href={`/c/${c.slug}`}>{c.name}</a> — <span>{c.description}</span></li>
+      ))}
+    </ul>
+  </section>
+
+  <section>
+    <h2>Latest threads</h2>
+    <ul>
+      {threads?.map((t) => (
+        <li>
+          {t.is_pinned ? "📌 " : ""}
+          <a href={`/c/${t.categories?.slug}/${t.slug}`}>{t.title}</a>
+          <small> in {t.categories?.name} by {t.profiles?.username}</small>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Layout>
