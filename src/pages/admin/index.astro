@@ -1,0 +1,56 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { supabase } from "../../lib/supabase";
+
+// RLS ensures only admins can read reports; everyone else gets an empty list.
+const { data: reports } = await supabase
+  .from("reports")
+  .select("id, target_type, target_id, reason, status, created_at")
+  .eq("status", "open")
+  .order("created_at", { ascending: true });
+---
+<Layout title="Moderation — ZenVX Forum" description="Moderation queue.">
+  <h1>Moderation queue</h1>
+  <p><em>Admin-only. Non-admins see an empty queue (enforced by RLS).</em></p>
+
+  <ul id="reports">
+    {reports?.map((r) => (
+      <li data-report-id={r.id} data-type={r.target_type} data-target={r.target_id}>
+        <strong>{r.target_type}</strong> — {r.reason}
+        <small> ({new Date(r.created_at).toLocaleString()})</small>
+        <div class="actions">
+          <button class="soft-delete" type="button">Soft-delete content</button>
+          <button class="resolve" data-status="reviewed" type="button">Mark reviewed</button>
+          <button class="resolve" data-status="actioned" type="button">Mark actioned</button>
+        </div>
+      </li>
+    ))}
+  </ul>
+
+  <script>
+    import { supabase } from "../../lib/supabase";
+    document.querySelectorAll("#reports li").forEach((li) => {
+      const type = li.dataset.type;
+      const targetId = li.dataset.target;
+      const reportId = li.dataset.reportId;
+
+      li.querySelector(".soft-delete")?.addEventListener("click", async () => {
+        const table = type === "thread" ? "threads" : "posts";
+        const { error } = await supabase.from(table).update({ is_deleted: true }).eq("id", targetId);
+        alert(error ? error.message : "Content soft-deleted.");
+      });
+
+      li.querySelectorAll(".resolve").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          const { error } = await supabase
+            .from("reports")
+            .update({ status: b.dataset.status, resolved_by: user?.id, resolved_at: new Date().toISOString() })
+            .eq("id", reportId);
+          if (!error) li.remove();
+          else alert(error.message);
+        })
+      );
+    });
+  </script>
+</Layout>

@@ -3,6 +3,7 @@ import Layout from "../../../layouts/Layout.astro";
 import { supabase } from "../../../lib/supabase";
 import { renderMarkdown, excerpt } from "../../../lib/markdown";
 import ReplyControls from "../../../components/ReplyControls.astro";
+import ReportButton from "../../../components/ReportButton.astro";
 
 const { thread } = Astro.params;
 
@@ -56,6 +57,7 @@ const jsonLd = {
     <h1>{t.title}</h1>
     <p class="meta">by {t.profiles?.username}</p>
     <div class="body" set:html={bodyHtml} />
+    <ReportButton targetType="thread" targetId={t.id} />
   </article>
 
   <hr />
@@ -67,6 +69,7 @@ const jsonLd = {
       <li class="post" data-id={p.id}>
         <p class="meta">{p.profiles?.username}</p>
         <div class="body" set:html={renderMarkdown(p.body)} />
+        <ReportButton targetType="post" targetId={p.id} />
         <ul class="children">
           {childrenOf(p.id).map((child) => (
             <li class="post" data-id={child.id}>

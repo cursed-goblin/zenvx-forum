@@ -1,0 +1,23 @@
+---
+const { targetType, targetId } = Astro.props;
+---
+<button class="report-btn" data-type={targetType} data-id={targetId} type="button">Report</button>
+
+<script>
+  import { supabase } from "../lib/supabase";
+  document.querySelectorAll(".report-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const reason = prompt("Why are you reporting this?");
+      if (!reason) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { alert("Please sign in to report."); return; }
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: user.id,
+        target_type: btn.dataset.type,
+        target_id: btn.dataset.id,
+        reason,
+      });
+      alert(error ? error.message : "Reported. Thank you — a moderator will review it.");
+    });
+  });
+</script>
