@@ -1,18 +1,28 @@
 /**
  * ZenVX Supabase Proxy Worker
  *
- * Fronts ALL Supabase REST/Auth/Storage API calls so they pass through
- * Cloudflare (DDoS protection + rate limiting) instead of hitting the
- * Supabase origin directly.
+ * Fronts ALL Supabase traffic so it passes through Cloudflare (DDoS protection
+ * + rate limiting) instead of hitting the Supabase origin directly. This
+ * includes REST, Auth, Storage AND the Realtime WebSocket (handled via the
+ * upgrade passthrough below).
  */
 
 const SCHEME = "https://";
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
     const allowed = (env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
     const isAllowedOrigin = !origin || allowed.includes(origin);
+
+    // --- Realtime WebSocket passthrough ---
+    // Cloudflare transparently proxies the WS upgrade, so Supabase Realtime
+    // ALSO routes through Cloudflare rather than connecting to *.supabase.co.
+    if ((request.headers.get("Upgrade") || "").toLowerCase() === "websocket") {
+      const wsTarget = new URL(url.pathname + url.search, SCHEME + env.SUPABASE_HOST);
+      return fetch(new Request(wsTarget.toString(), request));
+    }
 
     // CORS preflight
     if (request.method === "OPTIONS") {
@@ -35,7 +45,6 @@ export default {
     }
 
     // Rewrite to the real Supabase origin, preserving path + query
-    const url = new URL(request.url);
     const target = new URL(url.pathname + url.search, SCHEME + env.SUPABASE_HOST);
 
     const proxied = new Request(target.toString(), request);
