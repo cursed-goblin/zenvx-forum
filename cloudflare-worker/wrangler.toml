@@ -1,0 +1,20 @@
+name = "zenvx-supabase-proxy"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# Route all api.zenvx.com traffic through this Worker
+routes = [
+  { pattern = "api.zenvx.com/*", zone_name = "zenvx.com" }
+]
+
+# Public, non-secret config. SUPABASE_HOST should be set as a secret in prod:
+#   wrangler secret put SUPABASE_HOST
+[vars]
+ALLOWED_ORIGINS = "https://forum.zenvx.com,http://localhost:4321"
+RATE_LIMIT_MAX = "120"      # requests per window per IP
+RATE_LIMIT_WINDOW = "60"    # window length in seconds
+
+# KV namespace for rate limiting (create with: wrangler kv namespace create RATE_LIMIT)
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
