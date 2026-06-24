@@ -1,0 +1,25 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Choose a username — ZenVX Forum">
+  <h1>Choose a username</h1>
+  <form id="username-form">
+    <input name="username" required minlength="3" maxlength="24" pattern="[a-zA-Z0-9_]+" />
+    <button type="submit">Save</button>
+    <p id="msg" role="status"></p>
+  </form>
+  <script>
+    import { supabase } from "../../lib/supabase";
+    const form = document.getElementById("username-form");
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("msg");
+      const username = new FormData(form).get("username");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.location.href = "/login"; return; }
+      const { error } = await supabase.from("profiles").update({ username }).eq("id", user.id);
+      if (error) { if (msg) msg.textContent = error.message; return; }
+      window.location.href = "/";
+    });
+  </script>
+</Layout>

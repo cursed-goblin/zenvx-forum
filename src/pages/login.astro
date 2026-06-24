@@ -1,0 +1,52 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="Sign in — ZenVX Forum" description="Sign in to ZenVX Forum.">
+  <h1>Sign in</h1>
+
+  <form id="email-form">
+    <label>Email <input name="email" type="email" required /></label>
+    <label>Password <input name="password" type="password" required minlength="8" /></label>
+    <div class="actions">
+      <button type="submit" data-mode="signin">Sign in</button>
+      <button type="submit" data-mode="signup">Create account</button>
+    </div>
+  </form>
+
+  <hr />
+  <button id="google">Continue with Google</button>
+  <p id="msg" role="status"></p>
+
+  <script>
+    import { supabase } from "../lib/supabase";
+
+    const redirectTo = window.location.origin + "/auth/callback";
+    const msg = document.getElementById("msg");
+    const form = document.getElementById("email-form");
+    let mode = "signin";
+    form?.querySelectorAll("button[data-mode]").forEach((b) =>
+      b.addEventListener("click", () => { mode = b.dataset.mode; })
+    );
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const email = fd.get("email");
+      const password = fd.get("password");
+      const fn = mode === "signup" ? "signUp" : "signInWithPassword";
+      const opts = mode === "signup" ? { email, password, options: { emailRedirectTo: redirectTo } } : { email, password };
+      const { error } = await supabase.auth[fn](opts);
+      if (error) { if (msg) msg.textContent = error.message; return; }
+      if (mode === "signup") { if (msg) msg.textContent = "Check your email to confirm your account."; }
+      else { window.location.href = "/"; }
+    });
+
+    document.getElementById("google")?.addEventListener("click", async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+      if (error && msg) msg.textContent = error.message;
+    });
+  </script>
+</Layout>

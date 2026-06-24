@@ -1,0 +1,11 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="Signing out…">
+  <p>Signing out…</p>
+  <script>
+    import { supabase } from "../lib/supabase";
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  </script>
+</Layout>

@@ -1,0 +1,20 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout title="Signing in… — ZenVX Forum">
+  <p id="msg">Completing sign-in…</p>
+  <script>
+    import { supabase } from "../../lib/supabase";
+    // detectSessionInUrl handles the OAuth/email hash exchange automatically.
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      // First-time users pick a username
+      const { data: profile } = await supabase
+        .from("profiles").select("username").eq("id", data.session.user.id).single();
+      const needsName = !profile || profile.username?.startsWith("user_");
+      window.location.href = needsName ? "/account/username" : "/";
+    } else {
+      window.location.href = "/login";
+    }
+  </script>
+</Layout>
