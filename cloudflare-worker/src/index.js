@@ -7,10 +7,6 @@
  */
 
 export default {
-  /**
-   * @param {Request} request
-   * @param  SUPABASE_HOST: string, ALLOWED_ORIGINS: string, RATE_LIMIT_MAX: string, RATE_LIMIT_WINDOW: string, RATE_LIMIT: KVNamespace  env
-   */
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
     const allowed = (env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
