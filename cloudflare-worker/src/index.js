@@ -6,6 +6,8 @@
  * Supabase origin directly.
  */
 
+const SCHEME = "https://";
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
@@ -34,7 +36,7 @@ export default {
 
     // Rewrite to the real Supabase origin, preserving path + query
     const url = new URL(request.url);
-    const target = new URL(url.pathname + url.search, `https://${env.SUPABASE_HOST}`);
+    const target = new URL(url.pathname + url.search, SCHEME + env.SUPABASE_HOST);
 
     const proxied = new Request(target.toString(), request);
     proxied.headers.set("Host", env.SUPABASE_HOST);
